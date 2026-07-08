@@ -4,6 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Ledger — Project &amp; Account Tracker</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="theme-color" content="#1B2430" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Ledger" />
+<meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -920,24 +928,51 @@ async function handleSaveDbUrl(){
   $('saveDbBtn').disabled = true;
 
   // verify the URL is actually reachable before committing to it —
-  // catches typos and WebView network-permission issues with a clear message
+  // catches typos and WebView network-permission issues with a clear message.
+  // Guarded with a hard timeout so a blocked/hanging WebView fetch can never
+  // leave the button stuck on "Checking…" forever.
+  let reachable = false;
+  let errMsg = '';
   try{
-    const testRes = await fetch(clean + '/.json', { method: 'GET' });
-    if(!testRes.ok && testRes.status !== 401 && testRes.status !== 404){
-      throw new Error('status ' + testRes.status);
-    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=> controller.abort(), 6000);
+    const testRes = await fetch(clean + '/.json', { method: 'GET', signal: controller.signal });
+    clearTimeout(timeoutId);
+    reachable = true; // any HTTP response at all means the network path works
   } catch(err){
-    $('setupErr').textContent = 'Could not reach that database. Check the URL is correct and this device has internet access. (' + (err && err.message ? err.message : 'network error') + ')';
-    $('saveDbBtn').textContent = 'Save & continue';
-    $('saveDbBtn').disabled = false;
+    errMsg = (err && err.name === 'AbortError') ? 'timed out after 6 seconds' : (err && err.message ? err.message : 'network error');
+  }
+
+  $('saveDbBtn').textContent = 'Save & continue';
+  $('saveDbBtn').disabled = false;
+
+  if(!reachable){
+    $('setupErr').innerHTML = `Could not reach that database (${escapeHtmlSafe(errMsg)}). This can happen if the app's WebView is blocking network requests. ` +
+      `You can double-check the URL is correct, or <a href="#" id="skipCheckLink">continue anyway</a> if you're confident it's right.`;
+    const skipLink = document.getElementById('skipCheckLink');
+    if(skipLink){
+      skipLink.addEventListener('click', (e)=>{
+        e.preventDefault();
+        commitDbUrl(clean);
+      });
+    }
     return;
   }
 
+  commitDbUrl(clean);
+}
+
+function commitDbUrl(clean){
   DB_URL = clean;
   localStorage.setItem('ledger_db_url', DB_URL);
-  $('saveDbBtn').textContent = 'Save & continue';
-  $('saveDbBtn').disabled = false;
+  $('setupErr').textContent = '';
   showPassGate();
+}
+
+function escapeHtmlSafe(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
 }
 
 $('saveDbBtn').addEventListener('click', handleSaveDbUrl);
