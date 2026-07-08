@@ -1,0 +1,1402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Ledger — Project &amp; Account Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #1B2430;
+    --ink-2: #232E3D;
+    --ink-3: #2C3847;
+    --paper: #F7F4EC;
+    --paper-dim: #EDE9DD;
+    --brass: #B8935A;
+    --brass-bright: #D4AC74;
+    --slate: #8B94A3;
+    --slate-dim: #5E6674;
+    --red: #C4514A;
+    --green: #6E8F71;
+    --line: rgba(247,244,236,0.09);
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 10px;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(184,147,90,0.07), transparent 60%),
+      var(--ink);
+    color: var(--paper);
+    font-family: var(--sans);
+    min-height:100vh;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 80px;
+  }
+
+  ::selection{ background: var(--brass); color: var(--ink); }
+
+  a{ color: inherit; }
+
+  button{
+    font-family: var(--sans);
+    cursor:pointer;
+    border:none;
+    background:none;
+    color:inherit;
+  }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible{
+    outline: 2px solid var(--brass-bright);
+    outline-offset: 2px;
+  }
+
+  input, textarea, select{
+    font-family: var(--sans);
+    color: var(--paper);
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    width:100%;
+  }
+  input::placeholder, textarea::placeholder{ color: var(--slate-dim); }
+
+  .wrap{
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 28px 18px 40px;
+  }
+
+  /* ---------- HEADER ---------- */
+  header.top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: 22px;
+    gap: 14px;
+  }
+  .brand{
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: 0.02em;
+    display:flex;
+    align-items:baseline;
+    gap: 10px;
+    flex-shrink:0;
+  }
+  .brand .dot{
+    width:9px;height:9px;border-radius:2px;
+    background: var(--brass);
+    transform: rotate(45deg);
+    flex-shrink:0;
+  }
+  .brand small{
+    display:block;
+    font-family: var(--sans);
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--slate);
+    letter-spacing: 0.03em;
+    margin-top: 2px;
+  }
+  .lock-btn{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--slate);
+    border: 1px solid var(--line);
+    padding: 7px 11px;
+    border-radius: 7px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .lock-btn:hover{ color: var(--paper); border-color: var(--slate-dim); }
+
+  /* ---------- GATE (passcode) ---------- */
+  .gate{
+    max-width: 380px;
+    margin: 14vh auto 0;
+    padding: 0 20px;
+    text-align:center;
+  }
+  .gate .mark{
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight:700;
+    margin-bottom: 6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+  }
+  .gate .mark .dot{
+    width:12px;height:12px;border-radius:3px;
+    background: var(--brass);
+    transform: rotate(45deg);
+  }
+  .gate p.sub{
+    color: var(--slate);
+    font-size: 13.5px;
+    margin: 0 0 26px;
+    line-height:1.5;
+  }
+  .gate input{
+    text-align:center;
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    padding: 13px 14px;
+    margin-bottom: 12px;
+  }
+  .gate .primary{
+    width:100%;
+    background: var(--brass);
+    color: var(--ink);
+    font-weight:600;
+    font-size: 14px;
+    padding: 13px 14px;
+    border-radius: 8px;
+    transition: background .15s ease;
+  }
+  .gate .primary:hover{ background: var(--brass-bright); }
+  .gate .hint{
+    margin-top:18px;
+    font-size:12px;
+    color: var(--slate-dim);
+    line-height:1.6;
+  }
+  .gate .err{
+    color: var(--red);
+    font-size:12.5px;
+    margin: -4px 0 12px;
+    min-height: 16px;
+  }
+
+  /* ---------- WELCOME GREETING ---------- */
+  .welcome-row{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin: -10px 0 22px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--slate);
+  }
+  .welcome-row span#welcomeText{
+    color: var(--paper);
+  }
+  .welcome-edit{
+    color: var(--slate-dim);
+    font-size: 12px;
+    padding: 3px 5px;
+    border-radius: 5px;
+    line-height:1;
+  }
+  .welcome-edit:hover{ color: var(--brass-bright); }
+  .welcome-edit-row{
+    display:flex;
+    gap: 8px;
+    margin: -10px 0 22px;
+  }
+  .welcome-edit-row input{
+    flex:1;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+  .welcome-save{
+    background: var(--brass);
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 12.5px;
+    padding: 0 14px;
+    border-radius: 7px;
+    white-space:nowrap;
+  }
+  .welcome-save:hover{ background: var(--brass-bright); }
+
+  /* ---------- COLLAPSIBLE SECTIONS ---------- */
+  .collapsible{
+    margin-bottom: 18px;
+  }
+  .collapsible-header{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap: 9px;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--slate);
+    padding: 10px 2px;
+    text-align:left;
+  }
+  .collapsible-header:hover{ color: var(--paper); }
+  .collapsible-header::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background: var(--line);
+    margin-left: 4px;
+  }
+  .collapsible-header .chev{
+    font-size: 12px;
+    color: var(--slate-dim);
+    transition: transform .18s ease;
+    flex-shrink:0;
+  }
+  .collapsible.open > .collapsible-header .chev{ transform: rotate(90deg); }
+  .collapsible-header-count{
+    font-size: 11px;
+    color: var(--slate-dim);
+  }
+  .collapsible-body{
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .22s ease;
+  }
+  .collapsible.open > .collapsible-body{ max-height: 600px; }
+
+  /* ---------- MASCOT ---------- */
+  .mascot-track{
+    position: relative;
+    flex: 1;
+    height: 34px;
+    min-width: 60px;
+    max-width: 220px;
+    overflow: visible;
+  }
+  .mascot{
+    position: absolute;
+    bottom: 2px;
+    left: 0;
+    width: 22px;
+    height: 26px;
+    will-change: transform;
+  }
+  .mascot-body{
+    width: 20px;
+    height: 18px;
+    background: var(--brass);
+    position: relative;
+    image-rendering: pixelated;
+    clip-path: polygon(
+      20% 0%, 80% 0%,
+      80% 11%, 90% 11%,
+      90% 22%, 100% 22%,
+      100% 78%, 90% 78%,
+      90% 89%, 80% 89%,
+      80% 100%, 20% 100%,
+      20% 89%, 10% 89%,
+      10% 78%, 0% 78%,
+      0% 22%, 10% 22%,
+      10% 11%, 20% 11%
+    );
+    transition: background .15s ease;
+  }
+  .mascot.excited .mascot-body{ background: var(--brass-bright); }
+  .mascot-eye{
+    position:absolute;
+    width: 3px;
+    height: 3px;
+    background: var(--ink);
+    top: 6px;
+  }
+  .eye-l{ left: 4px; }
+  .eye-r{ left: 12px; }
+  .mascot.blink .mascot-eye{ transform: scaleY(0.15); }
+  .mascot.excited .mascot-eye{ height: 4px; top: 5px; }
+
+  .mascot-leg{
+    position: absolute;
+    bottom: -5px;
+    width: 4px;
+    height: 6px;
+    background: var(--brass);
+  }
+  .mascot.excited .mascot-leg{ background: var(--brass-bright); }
+  .leg-l{ left: 3px; }
+  .leg-r{ left: 13px; }
+
+  .mascot.walking .leg-l{ animation: leg-walk 0.42s steps(2) infinite; }
+  .mascot.walking .leg-r{ animation: leg-walk 0.42s steps(2) infinite reverse; }
+  .mascot.walking .mascot-body{ animation: body-walk 0.42s steps(2) infinite; }
+  .mascot.excited.walking .leg-l{ animation-duration: 0.22s; }
+  .mascot.excited.walking .leg-r{ animation-duration: 0.22s; }
+  .mascot.excited.walking .mascot-body{ animation-duration: 0.22s; }
+
+  .mascot.idle .mascot-body{ animation: mascot-bob 2.2s ease-in-out infinite; }
+
+  @keyframes leg-walk{
+    0%{ transform: translateY(0) scaleY(1); }
+    50%{ transform: translateY(-2px) scaleY(0.7); }
+    100%{ transform: translateY(0) scaleY(1); }
+  }
+  @keyframes body-walk{
+    0%, 100%{ transform: translateY(0); }
+    50%{ transform: translateY(-1.5px); }
+  }
+  @keyframes mascot-bob{
+    0%, 100%{ transform: translateY(0) rotate(0deg); }
+    25%{ transform: translateY(-2px) rotate(-4deg); }
+    50%{ transform: translateY(0px) rotate(0deg); }
+    75%{ transform: translateY(-1px) rotate(4deg); }
+  }
+  .mascot.flip .mascot-body, .mascot.flip .mascot-leg, .mascot.flip .mascot-eye{
+    transform: scaleX(-1);
+  }
+  .mascot.flip .eye-l{ left: auto; right: 4px; }
+  .mascot.flip .eye-r{ left: auto; right: 12px; }
+  .mascot.flip .leg-l{ left: auto; right: 3px; }
+  .mascot.flip .leg-r{ left: auto; right: 13px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .mascot *{ animation: none !important; }
+  }
+
+  /* ---------- SECTIONS ---------- */
+  .section-label{
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--slate-dim);
+    margin: 30px 0 10px;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+  .section-label::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background: var(--line);
+  }
+
+  /* ---------- ACCOUNTS STRIP ---------- */
+  .accounts-strip{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+  }
+  .acct-tag{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 10px 7px 8px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  .acct-tag .swatch{
+    width:9px;height:9px;border-radius:2px;
+    flex-shrink:0;
+  }
+  .acct-tag .count{
+    color: var(--slate-dim);
+    font-size: 11px;
+  }
+  .acct-tag .del{
+    color: var(--slate-dim);
+    margin-left:2px;
+    font-size:14px;
+    line-height:1;
+    padding:2px;
+  }
+  .acct-tag .del:hover{ color: var(--red); }
+
+  .add-acct-row{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+  }
+  .add-acct-row input{ flex:1; }
+  .add-acct-row select{
+    width: auto;
+    padding: 10px 8px;
+  }
+  .add-acct-row button.add{
+    background: var(--ink-3);
+    border: 1px solid var(--brass);
+    color: var(--brass-bright);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 16px;
+    border-radius: 8px;
+    white-space:nowrap;
+  }
+  .add-acct-row button.add:hover{ background: rgba(184,147,90,0.12); }
+
+  .empty-note{
+    color: var(--slate-dim);
+    font-size: 13px;
+    padding: 14px 0;
+    font-style: italic;
+  }
+
+  /* ---------- PROJECTS ---------- */
+  .add-project{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 4px;
+  }
+  .add-project .row1{
+    display:flex;
+    gap:8px;
+  }
+  .add-project .row1 input{ flex:1; }
+  .add-project select{ width: auto; min-width: 130px; }
+  .add-project textarea{
+    resize: vertical;
+    min-height: 46px;
+    font-size: 13.5px;
+  }
+  .add-project .submit-row{
+    display:flex;
+    justify-content:flex-end;
+  }
+  .add-project button.create{
+    background: var(--brass);
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 9px 18px;
+    border-radius: 7px;
+  }
+  .add-project button.create:hover{ background: var(--brass-bright); }
+  .add-project button.create:disabled{
+    background: var(--slate-dim);
+    color: var(--ink-2);
+    cursor: not-allowed;
+  }
+
+  .project-list{
+    display:flex;
+    flex-direction:column;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .project{
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    transition: border-color .15s ease;
+  }
+  .project::before{
+    content:'';
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width: 4px;
+    background: var(--tab-color, var(--slate-dim));
+  }
+  .project-head{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    padding: 13px 14px 13px 18px;
+    cursor:pointer;
+  }
+  .project-head .name{
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 14.5px;
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .project-head .acct-pill{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--slate);
+    background: rgba(255,255,255,0.03);
+    padding: 4px 9px;
+    border-radius: 20px;
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+  .project-head .acct-pill .swatch{
+    width:7px;height:7px;border-radius:50%;
+    flex-shrink:0;
+  }
+  .project-head .chev{
+    color: var(--slate-dim);
+    font-size: 12px;
+    transition: transform .18s ease;
+    flex-shrink:0;
+  }
+  .project.open .chev{ transform: rotate(90deg); }
+
+  .project-body{
+    max-height:0;
+    overflow:hidden;
+    transition: max-height .22s ease;
+  }
+  .project.open .project-body{ max-height: 800px; }
+  .project-body-inner{
+    padding: 0 14px 16px 18px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+    display:flex;
+    flex-direction:column;
+    gap: 14px;
+  }
+
+  .desc-block textarea{
+    font-size: 13.5px;
+    min-height: 60px;
+  }
+  .desc-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:6px;
+  }
+  .desc-actions button{
+    font-size:12px;
+    color: var(--slate);
+    padding: 5px 10px;
+    border-radius:6px;
+  }
+  .desc-actions button.save{
+    background: rgba(184,147,90,0.14);
+    color: var(--brass-bright);
+  }
+  .desc-actions button.save:hover{ background: rgba(184,147,90,0.22); }
+  .desc-empty{
+    color: var(--slate-dim);
+    font-size: 13px;
+    font-style: italic;
+    cursor:text;
+  }
+
+  .reassign-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap: wrap;
+  }
+  .reassign-row label{
+    font-size: 11.5px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color: var(--slate-dim);
+    font-family: var(--mono);
+  }
+  .reassign-row select{ width:auto; flex:1; min-width:140px; }
+  .reassign-row button.go{
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    color: var(--paper);
+  }
+  .reassign-row button.go:hover{ border-color: var(--brass); color: var(--brass-bright); }
+
+  .history{
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--slate-dim);
+    display:flex;
+    flex-direction:column;
+    gap: 5px;
+    border-left: 2px solid var(--line);
+    padding-left: 10px;
+  }
+  .history .h-item span.t{ color: var(--slate); }
+  .history .h-item span.evt-reassign{ color: var(--brass); }
+
+  .project-footer{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .archive-btn{
+    font-size: 11.5px;
+    color: var(--slate-dim);
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .archive-btn:hover{ color: var(--red); }
+
+  .toast{
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 11px 18px;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    opacity:0;
+    pointer-events:none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 50;
+    max-width: 90vw;
+    text-align:center;
+  }
+  .toast.show{
+    opacity:1;
+    transform: translateX(-50%) translateY(-6px);
+  }
+
+  .sync-note{
+    font-size: 11px;
+    color: var(--slate-dim);
+    text-align:center;
+    margin-top: 30px;
+    line-height:1.6;
+  }
+
+  @media (max-width: 480px){
+    .wrap{ padding: 20px 14px 40px; }
+    .add-project .row1{ flex-direction:column; }
+    .add-project select{ width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="setupGate" class="gate">
+  <div class="mark"><span class="dot"></span>LEDGER</div>
+  <p class="sub">One-time setup on this device.<br/>Paste your free Firebase database URL.</p>
+  <input id="dbUrlInput" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://your-project.firebaseio.com" />
+  <div class="err" id="setupErr"></div>
+  <button class="primary" id="saveDbBtn">Save &amp; continue</button>
+  <div class="hint">Don't have one yet? It's free and takes ~3 minutes.<br/><a href="#" id="showSetupHelp">Show me how →</a></div>
+</div>
+
+<div id="setupHelp" class="gate" style="display:none; max-width:480px; text-align:left;">
+  <div class="mark" style="justify-content:flex-start;"><span class="dot"></span>LEDGER</div>
+  <p class="sub" style="margin-bottom:16px;">Set up your free sync backend (one-time, ~3 min):</p>
+  <ol style="font-size:13px; line-height:1.9; color:var(--paper); padding-left:20px; margin:0 0 20px;">
+    <li>Go to <b>console.firebase.google.com</b> and sign in with any Google account</li>
+    <li>Click <b>Add project</b> → name it anything (e.g. "my-ledger") → finish creation</li>
+    <li>In the left menu, go to <b>Build → Realtime Database</b> → <b>Create Database</b></li>
+    <li>Choose any location → start in <b>test mode</b> → Enable</li>
+    <li>Copy the URL shown at the top (ends in <code>.firebaseio.com</code>)</li>
+    <li>Come back here and paste it in</li>
+  </ol>
+  <p style="font-size:12px; color:var(--slate); line-height:1.6; margin-bottom:16px;">Test mode keeps rules open for 30 days by default — after that, open <b>Rules</b> in Firebase and set read/write to <code>true</code> permanently if you want it to keep working indefinitely. This data is only as private as your database URL + passcode, so don't share either.</p>
+  <button class="primary" id="backToSetupBtn">Got it, back to setup</button>
+</div>
+
+<div id="gate" class="gate" style="display:none;">
+  <div class="mark"><span class="dot"></span>LEDGER</div>
+  <p class="sub">One passcode, synced across every device.<br/>Use the same one on your phone and PC.</p>
+  <input id="passInput" type="text" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="enter your passcode" />
+  <div class="err" id="gateErr"></div>
+  <button class="primary" id="enterBtn">Enter</button>
+  <div class="hint">First time? Just type any passcode you'll remember — it creates a new space.<br/>Typing an existing passcode loads that space, wherever it was made.<br/><br/><a href="#" id="changeDbLink">Change database URL</a></div>
+</div>
+
+<div class="wrap" id="app" style="display:none;">
+  <header class="top">
+    <div class="brand">LEDGER
+      <small id="passLabel"></small>
+    </div>
+    <div class="mascot-track" id="mascotTrack">
+      <div class="mascot idle" id="mascot" aria-hidden="true">
+        <div class="mascot-body">
+          <div class="mascot-eye eye-l"></div>
+          <div class="mascot-eye eye-r"></div>
+        </div>
+        <div class="mascot-leg leg-l"></div>
+        <div class="mascot-leg leg-r"></div>
+      </div>
+    </div>
+    <button class="lock-btn" id="lockBtn">↩ switch space</button>
+  </header>
+
+  <div class="welcome-row" id="welcomeRow">
+    <span id="welcomeText"></span>
+    <button class="welcome-edit" id="welcomeEditBtn" title="Set your name">✎</button>
+  </div>
+  <div class="welcome-edit-row" id="welcomeEditRow" style="display:none;">
+    <input id="welcomeNameInput" type="text" placeholder="your name" maxlength="30" />
+    <button class="welcome-save" id="welcomeSaveBtn">Save</button>
+  </div>
+
+  <div class="collapsible" id="addProjectCollapsible">
+    <button class="collapsible-header" id="addProjectToggle">
+      <span class="chev">›</span>
+      <span>+ Add a project</span>
+    </button>
+    <div class="collapsible-body">
+      <div class="add-project">
+        <div class="row1">
+          <input id="projNameInput" type="text" placeholder="project name" maxlength="80" />
+          <select id="projAcctInput"></select>
+        </div>
+        <textarea id="projDescInput" placeholder="short description (optional)"></textarea>
+        <div class="submit-row">
+          <button class="create" id="projAddBtn">+ Create project</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="project-list" id="projList"></div>
+  <div class="empty-note" id="projEmpty" style="display:none;">No projects yet. Create your first one above.</div>
+
+  <div class="collapsible" id="accountsCollapsible" style="margin-top:34px;">
+    <button class="collapsible-header" id="accountsToggle">
+      <span class="chev">›</span>
+      <span>Accounts</span>
+      <span class="collapsible-header-count" id="acctHeaderCount"></span>
+    </button>
+    <div class="collapsible-body">
+      <div class="accounts-strip" id="acctStrip"></div>
+      <div class="empty-note" id="acctEmpty" style="display:none;">No accounts yet — add the Google/Claude accounts you juggle below.</div>
+      <div class="add-acct-row">
+        <input id="acctNameInput" type="text" placeholder="account name, e.g. work@gmail.com" maxlength="60" />
+        <select id="acctColorInput"></select>
+        <button class="add" id="acctAddBtn">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sync-note">Synced to this passcode's space. Anyone with the same passcode sees the same data — keep it private.</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = [
+  {name:'brass',  hex:'#B8935A'},
+  {name:'sage',   hex:'#6E8F71'},
+  {name:'clay',   hex:'#C4514A'},
+  {name:'slate',  hex:'#7A8CA8'},
+  {name:'plum',   hex:'#9B7BA8'},
+  {name:'teal',   hex:'#5FA0A0'},
+  {name:'amber',  hex:'#D4A24C'},
+  {name:'rose',   hex:'#C77B9B'},
+];
+
+let PASS = null;
+let DB_URL = null;
+let DATA = { accounts: [], projects: [] };
+
+const $ = (id) => document.getElementById(id);
+
+function sanitizeDbUrl(url){
+  url = url.trim().replace(/\/+$/, '');
+  if(!/^https:\/\/.+\.(firebaseio\.com|firebasedatabase\.app)$/.test(url)){
+    return null;
+  }
+  return url;
+}
+
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+function uid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+function fmtDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) + ' · ' +
+         d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
+}
+
+function spacePath(){
+  // sanitize passcode into a safe Firebase key (no . $ # [ ] / or whitespace)
+  const safe = PASS.replace(/[.$#\[\]\/\s]/g, '_');
+  return `${DB_URL}/ledger_spaces/${encodeURIComponent(safe)}.json`;
+}
+
+async function loadData(){
+  try{
+    const res = await fetch(spacePath());
+    if(!res.ok) throw new Error('fetch failed: ' + res.status);
+    const json = await res.json();
+    if(json){
+      DATA = json;
+      if(!DATA.accounts) DATA.accounts = [];
+      if(!DATA.projects) DATA.projects = [];
+    } else {
+      DATA = { accounts: [], projects: [] };
+    }
+  } catch(e){
+    DATA = { accounts: [], projects: [] };
+    toast('Could not reach your database — check the URL or your connection');
+  }
+}
+
+async function saveData(){
+  try{
+    const res = await fetch(spacePath(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(DATA)
+    });
+    if(!res.ok){
+      toast('Save failed — try again');
+    }
+  } catch(e){
+    toast('Save failed — check connection');
+  }
+}
+
+// ---------- SETUP GATE (Firebase URL, stored locally per device) ----------
+function showSetupGate(){
+  $('setupGate').style.display = 'block';
+  $('setupHelp').style.display = 'none';
+  $('gate').style.display = 'none';
+  setTimeout(()=> $('dbUrlInput').focus(), 0);
+}
+function showPassGate(){
+  $('setupGate').style.display = 'none';
+  $('setupHelp').style.display = 'none';
+  $('gate').style.display = 'block';
+  const last = localStorage.getItem('ledger_last_pass');
+  if(last) $('passInput').value = last;
+  setTimeout(()=> $('passInput').focus(), 0);
+}
+
+$('showSetupHelp').addEventListener('click', (e)=>{
+  e.preventDefault();
+  $('setupGate').style.display = 'none';
+  $('setupHelp').style.display = 'block';
+});
+$('backToSetupBtn').addEventListener('click', showSetupGate);
+
+$('saveDbBtn').addEventListener('click', ()=>{
+  const raw = $('dbUrlInput').value;
+  const clean = sanitizeDbUrl(raw);
+  if(!clean){
+    $('setupErr').textContent = 'That doesn\'t look like a Firebase Realtime Database URL. It should end in .firebaseio.com';
+    return;
+  }
+  $('setupErr').textContent = '';
+  DB_URL = clean;
+  localStorage.setItem('ledger_db_url', DB_URL);
+  showPassGate();
+});
+$('dbUrlInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') $('saveDbBtn').click(); });
+
+$('changeDbLink')?.addEventListener('click', (e)=>{
+  e.preventDefault();
+  showSetupGate();
+});
+
+// ---------- PASSCODE GATE ----------
+$('enterBtn').addEventListener('click', enterSpace);
+$('passInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enterSpace(); });
+
+async function enterSpace(){
+  const val = $('passInput').value.trim();
+  if(!val){
+    $('gateErr').textContent = 'Enter a passcode first.';
+    return;
+  }
+  $('gateErr').textContent = '';
+  $('enterBtn').textContent = 'Loading…';
+  $('enterBtn').disabled = true;
+  PASS = val;
+  await loadData();
+  localStorage.setItem('ledger_last_pass', PASS);
+  localStorage.setItem('ledger_remember', '1');
+  $('enterBtn').textContent = 'Enter';
+  $('enterBtn').disabled = false;
+  showApp();
+}
+
+function showApp(){
+  $('setupGate').style.display = 'none';
+  $('setupHelp').style.display = 'none';
+  $('gate').style.display = 'none';
+  $('app').style.display = 'block';
+  $('passLabel').textContent = PASS;
+  renderAccountColorOptions();
+  renderAll();
+  renderWelcome();
+}
+
+$('lockBtn').addEventListener('click', ()=>{
+  $('app').style.display = 'none';
+  $('passInput').value = '';
+  localStorage.removeItem('ledger_remember');
+  localStorage.removeItem('ledger_last_pass');
+  PASS = null;
+  DATA = { accounts: [], projects: [] };
+  showPassGate();
+});
+
+window.addEventListener('DOMContentLoaded', async ()=>{
+  const savedUrl = localStorage.getItem('ledger_db_url');
+  if(!savedUrl){
+    showSetupGate();
+    return;
+  }
+  DB_URL = savedUrl;
+
+  const remembered = localStorage.getItem('ledger_remember');
+  const savedPass = localStorage.getItem('ledger_last_pass');
+  if(remembered && savedPass){
+    PASS = savedPass;
+    await loadData();
+    showApp();
+  } else {
+    showPassGate();
+  }
+});
+
+// ---------- WELCOME GREETING ----------
+function renderWelcome(){
+  const name = (DATA.ownerName || '').trim();
+  if(name){
+    $('welcomeText').textContent = `Welcome, ${name}`;
+    $('welcomeRow').style.display = 'flex';
+  } else {
+    $('welcomeText').textContent = 'Add your name';
+    $('welcomeRow').style.display = 'flex';
+  }
+  $('welcomeEditRow').style.display = 'none';
+}
+
+$('welcomeEditBtn').addEventListener('click', ()=>{
+  $('welcomeNameInput').value = DATA.ownerName || '';
+  $('welcomeRow').style.display = 'none';
+  $('welcomeEditRow').style.display = 'flex';
+  setTimeout(()=> $('welcomeNameInput').focus(), 0);
+});
+$('welcomeText').addEventListener('click', ()=>{
+  if(!(DATA.ownerName || '').trim()) $('welcomeEditBtn').click();
+});
+
+async function saveWelcomeName(){
+  const val = $('welcomeNameInput').value.trim();
+  DATA.ownerName = val;
+  await saveData();
+  renderWelcome();
+  if(val) toast(`Welcome, ${val}`);
+}
+$('welcomeSaveBtn').addEventListener('click', saveWelcomeName);
+$('welcomeNameInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') saveWelcomeName(); });
+
+// ---------- MASCOT: walks, idles, reacts to cursor ----------
+(function(){
+  const track = document.getElementById('mascotTrack');
+  const mascot = document.getElementById('mascot');
+  if(!track || !mascot) return;
+
+  let pos = 0;          // current left position in px
+  let target = 0;       // target left position in px
+  let facingRight = true;
+  let mode = 'idle';    // idle | walking
+  let excited = false;
+  let mouseNear = false;
+  let mouseX = null;
+  let lastDecisionAt = 0;
+  let blinkTimer = null;
+
+  function trackWidth(){
+    return Math.max(track.clientWidth - mascot.clientWidth, 0);
+  }
+
+  function setFacing(right){
+    facingRight = right;
+    mascot.classList.toggle('flip', !right);
+  }
+
+  function pickNewIdleTarget(){
+    const w = trackWidth();
+    target = Math.random() * w;
+    setFacing(target >= pos);
+    mode = 'walking';
+    excited = false;
+    mascot.classList.remove('excited');
+  }
+
+  function scheduleBlink(){
+    clearTimeout(blinkTimer);
+    const delay = 2200 + Math.random() * 2800;
+    blinkTimer = setTimeout(()=>{
+      mascot.classList.add('blink');
+      setTimeout(()=> mascot.classList.remove('blink'), 130);
+      scheduleBlink();
+    }, delay);
+  }
+  scheduleBlink();
+
+  // mouse proximity: react when pointer is within/near the header
+  document.addEventListener('mousemove', (e)=>{
+    const rect = track.getBoundingClientRect();
+    const nearVertically = e.clientY >= rect.top - 40 && e.clientY <= rect.bottom + 40;
+    const nearHorizontally = e.clientX >= rect.left - 60 && e.clientX <= rect.right + 60;
+    mouseNear = nearVertically && nearHorizontally;
+    mouseX = e.clientX - rect.left;
+  });
+  document.addEventListener('mouseleave', ()=>{ mouseNear = false; });
+
+  function step(ts){
+    if(!lastDecisionAt) lastDecisionAt = ts;
+    const w = trackWidth();
+
+    if(mouseNear && mouseX !== null){
+      // flee from cursor: pick the far side, go faster
+      const fleeTarget = mouseX < w / 2 ? w : 0;
+      if(Math.abs(target - fleeTarget) > 4 || !excited){
+        target = fleeTarget;
+        excited = true;
+        mascot.classList.add('excited');
+        setFacing(target >= pos);
+      }
+      mode = 'walking';
+    } else if(excited){
+      // cursor left — calm down, go idle for a moment
+      excited = false;
+      mascot.classList.remove('excited');
+      mode = 'idle';
+      mascot.classList.remove('walking');
+      mascot.classList.add('idle');
+      setTimeout(pickNewIdleTarget, 700 + Math.random() * 900);
+    }
+
+    const speed = excited ? 1.7 : 0.55; // px per frame roughly
+    const dist = target - pos;
+    if(Math.abs(dist) > 1){
+      pos += Math.sign(dist) * Math.min(Math.abs(dist), speed);
+      mascot.classList.remove('idle');
+      mascot.classList.add('walking');
+    } else {
+      pos = target;
+      if(mode === 'walking' && !mouseNear){
+        mode = 'idle';
+        mascot.classList.remove('walking');
+        mascot.classList.add('idle');
+        setTimeout(()=>{ if(!mouseNear) pickNewIdleTarget(); }, 1200 + Math.random() * 1800);
+      }
+    }
+    mascot.style.transform = `translateX(${pos}px)`;
+    requestAnimationFrame(step);
+  }
+
+  // kick off after layout settles
+  setTimeout(()=>{
+    pos = trackWidth() / 2;
+    mascot.style.transform = `translateX(${pos}px)`;
+    pickNewIdleTarget();
+    requestAnimationFrame(step);
+  }, 300);
+
+  window.addEventListener('resize', ()=>{
+    pos = Math.min(pos, trackWidth());
+  });
+})();
+
+// ---------- COLLAPSIBLES ----------
+function wireCollapsible(containerId, headerId){
+  const container = $(containerId);
+  const header = $(headerId);
+  header.addEventListener('click', ()=>{
+    container.classList.toggle('open');
+  });
+}
+wireCollapsible('addProjectCollapsible', 'addProjectToggle');
+wireCollapsible('accountsCollapsible', 'accountsToggle');
+
+// ---------- ACCOUNTS ----------
+function renderAccountColorOptions(){
+  const sel = $('acctColorInput');
+  sel.innerHTML = '';
+  COLORS.forEach(c=>{
+    const opt = document.createElement('option');
+    opt.value = c.hex;
+    opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+}
+
+function nextAutoColor(){
+  const used = new Set(DATA.accounts.map(a=>a.color));
+  const free = COLORS.find(c => !used.has(c.hex));
+  return (free || COLORS[DATA.accounts.length % COLORS.length]).hex;
+}
+
+$('acctAddBtn').addEventListener('click', addAccount);
+$('acctNameInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') addAccount(); });
+
+async function addAccount(){
+  const name = $('acctNameInput').value.trim();
+  if(!name){ toast('Give the account a name first'); return; }
+  if(DATA.accounts.some(a=>a.name.toLowerCase() === name.toLowerCase())){
+    toast('That account already exists'); return;
+  }
+  const color = $('acctColorInput').value || nextAutoColor();
+  DATA.accounts.push({ id: uid(), name, color, createdAt: new Date().toISOString() });
+  $('acctNameInput').value = '';
+  await saveData();
+  renderAll();
+  toast('Account added');
+}
+
+async function removeAccount(id){
+  const inUse = DATA.projects.filter(p => p.accountId === id).length;
+  if(inUse > 0){
+    if(!confirm(`${inUse} project(s) use this account. They'll become unassigned. Continue?`)) return;
+    DATA.projects.forEach(p=>{ if(p.accountId === id) p.accountId = null; });
+  }
+  DATA.accounts = DATA.accounts.filter(a=>a.id !== id);
+  await saveData();
+  renderAll();
+  toast('Account removed');
+}
+
+function accountById(id){
+  return DATA.accounts.find(a=>a.id === id) || null;
+}
+
+// ---------- PROJECTS ----------
+let openProjectId = null;
+
+$('projAddBtn').addEventListener('click', addProject);
+
+async function addProject(){
+  const name = $('projNameInput').value.trim();
+  const desc = $('projDescInput').value.trim();
+  const acctId = $('projAcctInput').value || null;
+  if(!name){ toast('Give the project a name first'); return; }
+
+  const now = new Date().toISOString();
+  const proj = {
+    id: uid(),
+    name,
+    description: desc,
+    accountId: acctId || null,
+    createdAt: now,
+    history: [{ type:'created', at: now, note: acctId ? `Assigned to ${accountById(acctId)?.name || 'account'}` : 'No account assigned' }]
+  };
+  DATA.projects.unshift(proj);
+  $('projNameInput').value = '';
+  $('projDescInput').value = '';
+  await saveData();
+  renderAll();
+  toast('Project created');
+  $('addProjectCollapsible').classList.remove('open');
+}
+
+async function reassignProject(projId, newAcctId){
+  const proj = DATA.projects.find(p=>p.id === projId);
+  if(!proj) return;
+  const oldAcct = accountById(proj.accountId);
+  const newAcct = accountById(newAcctId);
+  if(proj.accountId === (newAcctId || null)) return;
+
+  proj.accountId = newAcctId || null;
+  proj.history.push({
+    type: 'reassigned',
+    at: new Date().toISOString(),
+    note: `${oldAcct ? oldAcct.name : 'Unassigned'} → ${newAcct ? newAcct.name : 'Unassigned'}`
+  });
+  await saveData();
+  renderAll();
+  toast('Project reassigned');
+}
+
+async function updateDescription(projId, newDesc){
+  const proj = DATA.projects.find(p=>p.id === projId);
+  if(!proj) return;
+  proj.description = newDesc;
+  await saveData();
+  toast('Description saved');
+}
+
+async function archiveProject(projId){
+  const proj = DATA.projects.find(p=>p.id === projId);
+  if(!proj) return;
+  if(!confirm(`Delete project "${proj.name}"? This can't be undone.`)) return;
+  DATA.projects = DATA.projects.filter(p=>p.id !== projId);
+  await saveData();
+  renderAll();
+  toast('Project deleted');
+}
+
+// ---------- RENDER ----------
+function renderAll(){
+  renderAccounts();
+  renderProjectAcctSelect();
+  renderProjects();
+}
+
+function renderAccounts(){
+  const strip = $('acctStrip');
+  strip.innerHTML = '';
+  if(DATA.accounts.length === 0){
+    $('acctEmpty').style.display = 'block';
+  } else {
+    $('acctEmpty').style.display = 'none';
+  }
+  $('acctHeaderCount').textContent = DATA.accounts.length ? `(${DATA.accounts.length})` : '';
+  DATA.accounts.forEach(acct=>{
+    const count = DATA.projects.filter(p=>p.accountId === acct.id).length;
+    const tag = document.createElement('div');
+    tag.className = 'acct-tag';
+    tag.innerHTML = `
+      <span class="swatch" style="background:${acct.color}"></span>
+      <span>${escapeHtml(acct.name)}</span>
+      <span class="count">${count}</span>
+      <button class="del" title="Remove account" aria-label="Remove ${escapeHtml(acct.name)}">×</button>
+    `;
+    tag.querySelector('.del').addEventListener('click', ()=> removeAccount(acct.id));
+    strip.appendChild(tag);
+  });
+}
+
+function renderProjectAcctSelect(){
+  const sel = $('projAcctInput');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">unassigned</option>';
+  DATA.accounts.forEach(a=>{
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = a.name;
+    sel.appendChild(opt);
+  });
+  if(current) sel.value = current;
+}
+
+function renderProjects(){
+  const list = $('projList');
+  list.innerHTML = '';
+  if(DATA.projects.length === 0){
+    $('projEmpty').style.display = 'block';
+    return;
+  }
+  $('projEmpty').style.display = 'none';
+
+  DATA.projects.forEach(proj=>{
+    const acct = accountById(proj.accountId);
+    const color = acct ? acct.color : '#5E6674';
+    const isOpen = openProjectId === proj.id;
+
+    const el = document.createElement('div');
+    el.className = 'project' + (isOpen ? ' open' : '');
+    el.style.setProperty('--tab-color', color);
+
+    el.innerHTML = `
+      <div class="project-head">
+        <span class="name">${escapeHtml(proj.name)}</span>
+        <span class="acct-pill"><span class="swatch" style="background:${color}"></span>${acct ? escapeHtml(acct.name) : 'unassigned'}</span>
+        <span class="chev">›</span>
+      </div>
+      <div class="project-body">
+        <div class="project-body-inner">
+          <div class="desc-block"></div>
+          <div class="reassign-row">
+            <label>Reassign</label>
+            <select class="reassign-select"></select>
+            <button class="go">Move</button>
+          </div>
+          <div class="history"></div>
+          <div class="project-footer">
+            <span></span>
+            <button class="archive-btn">🗑 Delete project</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // head click toggles
+    el.querySelector('.project-head').addEventListener('click', ()=>{
+      openProjectId = isOpen ? null : proj.id;
+      renderProjects();
+    });
+
+    // description block
+    const descBlock = el.querySelector('.desc-block');
+    if(proj.description){
+      const ta = document.createElement('textarea');
+      ta.value = proj.description;
+      descBlock.appendChild(ta);
+      const actions = document.createElement('div');
+      actions.className = 'desc-actions';
+      actions.innerHTML = `<button class="save">Save</button>`;
+      actions.querySelector('.save').addEventListener('click', ()=> updateDescription(proj.id, ta.value.trim()));
+      descBlock.appendChild(actions);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.placeholder = 'Add a short description…';
+      descBlock.appendChild(ta);
+      const actions = document.createElement('div');
+      actions.className = 'desc-actions';
+      actions.innerHTML = `<button class="save">Save</button>`;
+      actions.querySelector('.save').addEventListener('click', ()=> updateDescription(proj.id, ta.value.trim()));
+      descBlock.appendChild(actions);
+    }
+
+    // reassign select
+    const rSel = el.querySelector('.reassign-select');
+    rSel.innerHTML = '<option value="">unassigned</option>';
+    DATA.accounts.forEach(a=>{
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name;
+      if(a.id === proj.accountId) opt.selected = true;
+      rSel.appendChild(opt);
+    });
+    el.querySelector('.go').addEventListener('click', ()=> reassignProject(proj.id, rSel.value));
+
+    // history
+    const histEl = el.querySelector('.history');
+    proj.history.slice().reverse().forEach(h=>{
+      const line = document.createElement('div');
+      line.className = 'h-item';
+      const label = h.type === 'created' ? 'created' : 'reassigned';
+      const cls = h.type === 'reassigned' ? 'evt-reassign' : '';
+      line.innerHTML = `<span class="t">${fmtDate(h.at)}</span> — <span class="${cls}">${label}</span>: ${escapeHtml(h.note)}`;
+      histEl.appendChild(line);
+    });
+
+    // delete
+    el.querySelector('.archive-btn').addEventListener('click', ()=> archiveProject(proj.id));
+
+    list.appendChild(el);
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
