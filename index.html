@@ -639,11 +639,17 @@
   }
   .history .h-item span.t{ color: var(--slate); }
   .history .h-item span.evt-reassign{ color: var(--brass); }
+  .history .h-item span.evt-archive{ color: var(--slate); }
 
   .project-footer{
     display:flex;
-    justify-content:space-between;
+    justify-content:flex-end;
     align-items:center;
+  }
+  .footer-btns{
+    display:flex;
+    gap: 14px;
+    flex-wrap: wrap;
   }
   .archive-btn{
     font-size: 11.5px;
@@ -652,7 +658,32 @@
     align-items:center;
     gap:5px;
   }
-  .archive-btn:hover{ color: var(--red); }
+  .archive-btn.archive-action-btn:hover{ color: var(--brass-bright); }
+  .archive-btn.delete-btn:hover{ color: var(--red); }
+  .unarchive-btn{
+    font-size: 11.5px;
+    color: var(--slate-dim);
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .unarchive-btn:hover{ color: var(--brass-bright); }
+
+  .project.archived{
+    opacity: 0.72;
+  }
+  .archived-tag{
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--slate-dim);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    padding: 2px 7px;
+    border-radius: 20px;
+    flex-shrink:0;
+  }
 
   .toast{
     position: fixed;
@@ -777,7 +808,19 @@
   <div class="project-list" id="projList"></div>
   <div class="empty-note" id="projEmpty" style="display:none;">No projects yet. Create your first one above.</div>
 
-  <div class="collapsible" id="accountsCollapsible" style="margin-top:34px;">
+  <div class="collapsible" id="archivedCollapsible" style="margin-top:34px;">
+    <button class="collapsible-header" id="archivedToggle">
+      <span class="chev">›</span>
+      <span>Archived</span>
+      <span class="collapsible-header-count" id="archivedHeaderCount"></span>
+    </button>
+    <div class="collapsible-body">
+      <div class="project-list" id="archivedList"></div>
+      <div class="empty-note" id="archivedEmpty" style="display:none;">No archived projects.</div>
+    </div>
+  </div>
+
+  <div class="collapsible" id="accountsCollapsible" style="margin-top:18px;">
     <button class="collapsible-header" id="accountsToggle">
       <span class="chev">›</span>
       <span>Accounts</span>
@@ -1200,6 +1243,7 @@ function wireCollapsible(containerId, headerId){
 }
 wireCollapsible('addProjectCollapsible', 'addProjectToggle');
 wireCollapsible('accountsCollapsible', 'accountsToggle');
+wireCollapsible('archivedCollapsible', 'archivedToggle');
 
 // ---------- ACCOUNTS ----------
 function renderAccountColorOptions(){
@@ -1310,9 +1354,33 @@ async function updateDescription(projId, newDesc){
 async function archiveProject(projId){
   const proj = DATA.projects.find(p=>p.id === projId);
   if(!proj) return;
-  if(!confirm(`Delete project "${proj.name}"? This can't be undone.`)) return;
+  proj.archived = true;
+  proj.archivedAt = new Date().toISOString();
+  proj.history.push({ type:'archived', at: proj.archivedAt, note: 'Project archived' });
+  await saveData();
+  openProjectId = null;
+  renderAll();
+  toast('Project archived');
+}
+
+async function unarchiveProject(projId){
+  const proj = DATA.projects.find(p=>p.id === projId);
+  if(!proj) return;
+  proj.archived = false;
+  const now = new Date().toISOString();
+  proj.history.push({ type:'unarchived', at: now, note: 'Project restored from archive' });
+  await saveData();
+  renderAll();
+  toast('Project restored');
+}
+
+async function deleteProject(projId){
+  const proj = DATA.projects.find(p=>p.id === projId);
+  if(!proj) return;
+  if(!confirm(`Permanently delete project "${proj.name}"? This can't be undone.`)) return;
   DATA.projects = DATA.projects.filter(p=>p.id !== projId);
   await saveData();
+  openProjectId = null;
   renderAll();
   toast('Project deleted');
 }
@@ -1361,103 +1429,116 @@ function renderProjectAcctSelect(){
   if(current) sel.value = current;
 }
 
+function buildProjectCard(proj){
+  const acct = accountById(proj.accountId);
+  const color = acct ? acct.color : '#5E6674';
+  const isOpen = openProjectId === proj.id;
+
+  const el = document.createElement('div');
+  el.className = 'project' + (isOpen ? ' open' : '') + (proj.archived ? ' archived' : '');
+  el.style.setProperty('--tab-color', color);
+
+  const footerBtns = proj.archived
+    ? `<button class="unarchive-btn">↩ Unarchive</button><button class="archive-btn delete-btn">🗑 Delete project</button>`
+    : `<button class="archive-btn archive-action-btn">🗂 Archive project</button><button class="archive-btn delete-btn">🗑 Delete project</button>`;
+
+  el.innerHTML = `
+    <div class="project-head">
+      <span class="name">${escapeHtml(proj.name)}</span>
+      ${proj.archived ? '<span class="archived-tag">archived</span>' : ''}
+      <span class="acct-pill"><span class="swatch" style="background:${color}"></span>${acct ? escapeHtml(acct.name) : 'unassigned'}</span>
+      <span class="chev">›</span>
+    </div>
+    <div class="project-body">
+      <div class="project-body-inner">
+        <div class="desc-block"></div>
+        <div class="reassign-row">
+          <label>Reassign</label>
+          <select class="reassign-select"></select>
+          <button class="go">Move</button>
+        </div>
+        <div class="history"></div>
+        <div class="project-footer">
+          <span></span>
+          <div class="footer-btns">${footerBtns}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // head click toggles
+  el.querySelector('.project-head').addEventListener('click', ()=>{
+    openProjectId = isOpen ? null : proj.id;
+    renderAll();
+  });
+
+  // description block
+  const descBlock = el.querySelector('.desc-block');
+  const ta = document.createElement('textarea');
+  ta.value = proj.description || '';
+  ta.placeholder = 'Add a short description…';
+  descBlock.appendChild(ta);
+  const actions = document.createElement('div');
+  actions.className = 'desc-actions';
+  actions.innerHTML = `<button class="save">Save</button>`;
+  actions.querySelector('.save').addEventListener('click', ()=> updateDescription(proj.id, ta.value.trim()));
+  descBlock.appendChild(actions);
+
+  // reassign select
+  const rSel = el.querySelector('.reassign-select');
+  rSel.innerHTML = '<option value="">unassigned</option>';
+  DATA.accounts.forEach(a=>{
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = a.name;
+    if(a.id === proj.accountId) opt.selected = true;
+    rSel.appendChild(opt);
+  });
+  el.querySelector('.go').addEventListener('click', ()=> reassignProject(proj.id, rSel.value));
+
+  // history
+  const histEl = el.querySelector('.history');
+  proj.history.slice().reverse().forEach(h=>{
+    const line = document.createElement('div');
+    line.className = 'h-item';
+    const labels = { created:'created', reassigned:'reassigned', archived:'archived', unarchived:'restored' };
+    const label = labels[h.type] || h.type;
+    const cls = h.type === 'reassigned' ? 'evt-reassign' : (h.type === 'archived' ? 'evt-archive' : '');
+    line.innerHTML = `<span class="t">${fmtDate(h.at)}</span> — <span class="${cls}">${label}</span>: ${escapeHtml(h.note)}`;
+    histEl.appendChild(line);
+  });
+
+  // footer actions
+  const archiveActionBtn = el.querySelector('.archive-action-btn');
+  if(archiveActionBtn) archiveActionBtn.addEventListener('click', ()=> archiveProject(proj.id));
+  const unarchiveBtn = el.querySelector('.unarchive-btn');
+  if(unarchiveBtn) unarchiveBtn.addEventListener('click', ()=> unarchiveProject(proj.id));
+  el.querySelector('.delete-btn').addEventListener('click', ()=> deleteProject(proj.id));
+
+  return el;
+}
+
 function renderProjects(){
   const list = $('projList');
   list.innerHTML = '';
-  if(DATA.projects.length === 0){
+  const active = DATA.projects.filter(p => !p.archived);
+  if(active.length === 0){
     $('projEmpty').style.display = 'block';
-    return;
+  } else {
+    $('projEmpty').style.display = 'none';
+    active.forEach(proj => list.appendChild(buildProjectCard(proj)));
   }
-  $('projEmpty').style.display = 'none';
 
-  DATA.projects.forEach(proj=>{
-    const acct = accountById(proj.accountId);
-    const color = acct ? acct.color : '#5E6674';
-    const isOpen = openProjectId === proj.id;
-
-    const el = document.createElement('div');
-    el.className = 'project' + (isOpen ? ' open' : '');
-    el.style.setProperty('--tab-color', color);
-
-    el.innerHTML = `
-      <div class="project-head">
-        <span class="name">${escapeHtml(proj.name)}</span>
-        <span class="acct-pill"><span class="swatch" style="background:${color}"></span>${acct ? escapeHtml(acct.name) : 'unassigned'}</span>
-        <span class="chev">›</span>
-      </div>
-      <div class="project-body">
-        <div class="project-body-inner">
-          <div class="desc-block"></div>
-          <div class="reassign-row">
-            <label>Reassign</label>
-            <select class="reassign-select"></select>
-            <button class="go">Move</button>
-          </div>
-          <div class="history"></div>
-          <div class="project-footer">
-            <span></span>
-            <button class="archive-btn">🗑 Delete project</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // head click toggles
-    el.querySelector('.project-head').addEventListener('click', ()=>{
-      openProjectId = isOpen ? null : proj.id;
-      renderProjects();
-    });
-
-    // description block
-    const descBlock = el.querySelector('.desc-block');
-    if(proj.description){
-      const ta = document.createElement('textarea');
-      ta.value = proj.description;
-      descBlock.appendChild(ta);
-      const actions = document.createElement('div');
-      actions.className = 'desc-actions';
-      actions.innerHTML = `<button class="save">Save</button>`;
-      actions.querySelector('.save').addEventListener('click', ()=> updateDescription(proj.id, ta.value.trim()));
-      descBlock.appendChild(actions);
-    } else {
-      const ta = document.createElement('textarea');
-      ta.placeholder = 'Add a short description…';
-      descBlock.appendChild(ta);
-      const actions = document.createElement('div');
-      actions.className = 'desc-actions';
-      actions.innerHTML = `<button class="save">Save</button>`;
-      actions.querySelector('.save').addEventListener('click', ()=> updateDescription(proj.id, ta.value.trim()));
-      descBlock.appendChild(actions);
-    }
-
-    // reassign select
-    const rSel = el.querySelector('.reassign-select');
-    rSel.innerHTML = '<option value="">unassigned</option>';
-    DATA.accounts.forEach(a=>{
-      const opt = document.createElement('option');
-      opt.value = a.id;
-      opt.textContent = a.name;
-      if(a.id === proj.accountId) opt.selected = true;
-      rSel.appendChild(opt);
-    });
-    el.querySelector('.go').addEventListener('click', ()=> reassignProject(proj.id, rSel.value));
-
-    // history
-    const histEl = el.querySelector('.history');
-    proj.history.slice().reverse().forEach(h=>{
-      const line = document.createElement('div');
-      line.className = 'h-item';
-      const label = h.type === 'created' ? 'created' : 'reassigned';
-      const cls = h.type === 'reassigned' ? 'evt-reassign' : '';
-      line.innerHTML = `<span class="t">${fmtDate(h.at)}</span> — <span class="${cls}">${label}</span>: ${escapeHtml(h.note)}`;
-      histEl.appendChild(line);
-    });
-
-    // delete
-    el.querySelector('.archive-btn').addEventListener('click', ()=> archiveProject(proj.id));
-
-    list.appendChild(el);
-  });
+  const archivedList = $('archivedList');
+  archivedList.innerHTML = '';
+  const archived = DATA.projects.filter(p => p.archived);
+  $('archivedHeaderCount').textContent = archived.length ? `(${archived.length})` : '';
+  if(archived.length === 0){
+    $('archivedEmpty').style.display = 'block';
+  } else {
+    $('archivedEmpty').style.display = 'none';
+    archived.forEach(proj => archivedList.appendChild(buildProjectCard(proj)));
+  }
 }
 
 function escapeHtml(str){
